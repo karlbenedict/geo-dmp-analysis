@@ -1,0 +1,212 @@
+---
+title: "R Notebook"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+  word_document: default
+  html_notebook: default
+---
+
+# GEO Data Sharing and Data Management Principles Crosswalk Analysis
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# load required libraries
+library(googlesheets4)
+library(googledrive)
+library(tidyverse)
+library(igraph)
+library(ggraph)
+library(knitr)
+library(kableExtra)
+library(flextable)
+
+opts <- options(knitr.kable.NA = "")
+```
+
+## Reading data from the Google Sheet
+
+```{r, echo=FALSE, error=TRUE, warning=TRUE, message=FALSE, results="hide"}
+# Crosswalk between GEO Data Management Principles and selected lifecycles and principles
+gsheetURL <- "https://docs.google.com/spreadsheets/d/15Fmw0m2jx-wKNqyzB9AsRbDeokp9NowrZBd7XLHZTEc/edit#gid=1719949641"
+gsheetSharingWorksheet <- "Crosswalk-DataSharingPrinciples"
+gsheetManagementWorksheet <- "Crosswalk-DataManagementPrinciples"
+
+gs4_deauth() # disable authentication requirements for this public sheet
+
+# get the sheet ids from the google sheet url
+ssid <- as_sheets_id(gsheetURL)
+unclass(ssid)
+
+# retrieve the base sheet content
+lifecycles <- read_sheet(ssid, sheet = "Lifecycles", skip = 1, na = c("-", ""))
+dmp_crosswalk <- read_sheet(ssid, sheet = "Crosswalk-DataManagementPrinciples")
+dsp_crosswalk <- read_sheet(ssid, sheet = "Crosswalk-DataSharingPrinciples")
+
+# extract nodes 
+n_lifecycles <- lifecycles %>% 
+  select(matches("-combo$")) %>% 
+  gather() %>% 
+  filter(!is.na(value)) %>% 
+  distinct(value) %>% 
+  mutate(label = str_split(value, "-", simplify = FALSE, n = 3)) %>% 
+  select(label)
+
+n_dmp <- dmp_crosswalk %>% 
+  filter(!is.na(DataManagementPrinciple)) %>% 
+  distinct(DataManagementPrinciple) %>% 
+  mutate(label = DataManagementPrinciple) %>% 
+  select(label)
+
+n_all <- n_lifecycles %>% 
+  rowwise() %>% 
+  mutate(type = case_when(label[1] == "TRUST" ~ "principle",
+                          label[1] == "FAIR" ~ "principle",
+                          label[1] == "DataONE" ~ "lifecycle",
+                          label[1] == "NIST" ~ "lifecycle",
+                          label[1] == "EEA" ~ "lifecycle",
+                          label[1] == "DataONE" ~ "lifecycle",
+                          label[1] == "NSTC" ~ "lifecycle",
+                          label[1] == "DataONE" ~ "lifecycle",
+                          label[1] == "EDMF" ~ "lifecycle")) %>% 
+  mutate(
+    key = paste(label[1], label[2], sep = "-"), 
+    source = label[1],
+    short_label = key, 
+    label = paste(paste(label[1], label[2], sep = "-"), label[3], sep = ": "),
+    node_label = label) %>% 
+  rbind(mutate(n_dmp,
+               key = sapply(strsplit(label, ":"), "[[", 1),
+               short_label = key, 
+               node_label = label, 
+               type = "Principle",
+               source = "GEO")) %>% 
+  select(key, short_label, node_label, source, type)
+  
+
+e_dmp_lifecycle <- tibble("from" = character(), "to" = character())
+dmp_from <- dmp_crosswalk$DataManagementPrinciple
+dmp_to <- dmp_crosswalk %>% select(-DataManagementPrinciple, -PrincipleDescription)
+
+for (i in seq_along(dmp_to)) {
+  out_to <- dmp_to[[i]]
+  out_combined <- bind_cols(dmp_from, out_to)
+  e_dmp_lifecycle <- rbind(e_dmp_lifecycle,out_combined)
+}
+
+e_dmp_lifecycle <- e_dmp_lifecycle %>% 
+  rename(from = 1, to = 2) %>% 
+  filter(!is.na(to)) %>% 
+  mutate(lifecycle = str_split(to, "-", simplify = TRUE),
+         from = sapply(strsplit(from, ":"), "[[", 1),)
+
+n_dmp_lifecycle <- e_dmp_lifecycle %>% 
+  select(from, to) %>% 
+  gather() %>% 
+  select(value) %>% 
+  distinct(value)
+
+```
+
+* Source of crosswalk information: 
+* Source worksheets: 
+
+```{r}
+dmp_crosswalk[c(1,4,5,6,7,8,9)] %>% 
+  qflextable() %>% 
+  set_header_labels(
+    values = list(DataManagementPrinciple = "Data Management Principle",
+                  "Lifecycle-EDMF" = "EDMF",
+                  "Lifecycle-NSTC" = "NSTC",
+                  "Lifecycle-EEA" = "EEA",
+                  "Lifecycle-NIST" = "NIST",
+                  "Lifecycle-DataONE" = "DataONE",
+                  "Principle-FAIR" = "FAIR",
+                  "Principle-TRUST" = "TRUST")) %>% 
+  fontsize(size = 7, part = "body") %>% 
+  fit_to_width(max_width = 6.5, unit = "in")
+```
+## Visualize some relationships
+
+```{r}
+# circular plot 1x1 funciton
+geo_x_single <- function(title, to_nodes, output_file) {
+  graph <- graph_from_data_frame(
+    d = filter(e_dmp_lifecycle, lifecycle == to_nodes),
+    vertices = filter(n_all, (source == to_nodes | source == "GEO") ),
+    directed = FALSE)
+  xy <- layout_(graph,in_circle())
+  ggraph(graph, layout = "linear", circular = TRUE) +
+    coord_fixed() +
+    geom_edge_link0(width = .1) +
+    geom_node_point(aes(color = as.factor(source)), size = 1, show.legend = FALSE) +
+    geom_node_label(aes(label = short_label, 
+                        color = as.factor(source)), 
+                    label.size = 0,
+                    show.legend = FALSE) +
+    xlim(-1.1, 1.1) +
+    ylim(-1.1, 1.1) +
+    ggtitle(title) +
+    theme(plot.title = element_text(size = 7, face = "bold"))
+  ggsave(paste("images", output_file, sep = "/"), width = 9, height = 9, dpi = 600)
+  #my_graph
+}
+
+geo_x_single(
+  "GEO Data Management Principles Mapped to DataONE Lifecycle Elements",
+  "DataONE", 
+  "dataone.png")
+geo_x_single(
+  "GEO Data Management Principles Mapped to NSTC Lifecycle Elements",
+  "NSTC", 
+  "nstc.png")
+geo_x_single(
+  "GEO Data Management Principles Mapped to EEA Lifecycle Elements",
+  "EEA", 
+  "eea.png")
+geo_x_single(
+  "GEO Data Management Principles Mapped to NIST Lifecycle Elements",
+  "NIST", 
+  "nist.png")
+geo_x_single(
+  "GEO Data Management Principles Mapped to FAIR Principles Elements",
+  "FAIR", 
+  "fair.png")
+geo_x_single(
+  "GEO Data Management Principles Mapped to TRUST Principles Elements",
+  "TRUST", 
+  "trust.png")
+
+# combined graph for all principles
+graph <- graph_from_data_frame(
+    d = filter(e_dmp_lifecycle, (lifecycle == "FAIR" | lifecycle == "TRUST") ),
+    vertices = filter(n_all, (source == "FAIR" | source == "TRUST" | source == "GEO") ),
+    directed = FALSE)
+  xy <- layout_(graph,in_circle())
+  ggraph(graph, layout = "linear", circular = TRUE) +
+    coord_fixed() +
+    geom_edge_link0(aes(color = lifecycle), width = 1) +
+    geom_node_point(aes(color = as.factor(source)), size = 1, show.legend = FALSE) +
+    geom_node_label(aes(label = short_label, 
+                        color = as.factor(source)), 
+                    label.size = 0,
+                    show.legend = FALSE) +
+    xlim(-1.1, 1.1) +
+    ylim(-1.1, 1.1) +
+    ggtitle("Crosswalk of GEO, FAIR, and TRUST principles") +
+    theme(plot.title = element_text(size = 7, face = "bold"))
+  ggsave(paste("images","principles.png", sep = "/"), width = 12, height = 12, dpi = 600)
+
+
+
+
+```
+
+
+```{r}
+graph <- graph_from_data_frame(
+  d = e_dmp_lifecycle,
+  vertices = n_all,
+  directed = FALSE)
+
+```

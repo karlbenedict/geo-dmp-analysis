@@ -1,0 +1,111 @@
+---
+title: "GEO Data Principles Analytics"
+author: "Karl Benedict - UNM/ESIP"
+date: "10/19/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# load required libraries
+library(googlesheets4)
+library(googledrive)
+library(tidyverse)
+library(igraph)
+library(ggraph)
+
+```
+
+## Define data source links and other shared variables for the analysis
+
+```{r}
+# Crosswalk between GEO Data Management Principles and selected lifecycles and principles
+gsheetURL <- "https://docs.google.com/spreadsheets/d/15Fmw0m2jx-wKNqyzB9AsRbDeokp9NowrZBd7XLHZTEc/edit#gid=1719949641"
+gsheetSharingWorksheet <- "Crosswalk-DataSharingPrinciples"
+gsheetManagementWorksheet <- "Crosswalk-DataManagementPrinciples"
+
+gs4_deauth() # disable authentication requirements for this public sheet
+
+# get the sheet ids from the google sheet url
+ssid <- as_sheets_id(gsheetURL)
+unclass(ssid)
+
+# retrieve the base sheet content
+lifecycles <- read_sheet(ssid, sheet = "Lifecycles", skip = 1, na = c("-", ""))
+dmp_crosswalk <- read_sheet(ssid, sheet = gsheetManagementWorksheet)
+dsp_crosswalk <- read_sheet(ssid, sheet = "Crosswalk-DataSharingPrinciples")
+
+# extract nodes 
+n_lifecycles <- lifecycles %>% 
+  select(matches("-combo$")) %>% 
+  gather() %>% 
+  filter(!is.na(value)) %>% 
+  distinct(value) %>% 
+  mutate(key = str_split(value, "-", simplify = FALSE, n = 3)) %>% 
+  select(key)
+
+n_dmp <- dmp_crosswalk %>% 
+  filter(!is.na(DataSharingPrinciple)) %>% 
+  distinct(DataSharingPrinciple) %>% 
+  mutate(key = DataSharingPrinciple) %>% 
+  select(key)
+
+n_all <- n_lifecycles %>% 
+  rbind(n_dmp)
+
+e_dmp_lifecycle <- tibble("from" = character(), "to" = character())
+dmp_from <- dmp_crosswalk$DataSharingPrinciple
+dmp_to <- dmp_crosswalk %>% select(-DataSharingPrinciple, -PrincipleDescription)
+
+for (i in seq_along(dmp_to)) {
+  out_to <- dmp_to[[i]]
+  out_combined <- bind_cols(dmp_from, out_to)
+  e_dmp_lifecycle <- rbind(e_dmp_lifecycle,out_combined)
+}
+
+e_dmp_lifecycle <- e_dmp_lifecycle %>% 
+  rename(from = 1, to = 2) %>% 
+  filter(!is.na(to)) %>% 
+  mutate(lifecycle = str_split(to, "-", simplify = TRUE))
+
+n_dmp_lifecycle <- e_dmp_lifecycle %>% 
+  select(from, to) %>% 
+  gather() %>% 
+  select(value) %>% 
+  distinct(value)
+
+```
+
+## Generate sample vis
+
+
+```{r}
+graph <- graph_from_data_frame(d = e_dmp_lifecycle, directed = FALSE)
+layout <- create_layout(graph, layout = 'star')
+ggraph(layout) +
+  geom_edge_link0(aes(color = factor(lifecycle))) +
+  geom_node_point() 
+
+ggraph(graph, layout = 'linear') +
+  geom_edge_arc(aes(color = factor(lifecycle))) +
+  geom_node_point()
+
+ggraph(graph, layout = "drl") +
+  geom_edge_link0(aes(color = factor(lifecycle))) +
+  geom_node_point()
+
+coords <- layout_(graph, in_circle())
+plot(graph, 
+     layout = coords,
+     vertex.label.family = "helvetica",
+     vertex.label.cex = .5,
+     vertex.label.dist = 1.75,
+     ) 
+
+coords <- layout_(graph, with_dh())
+plot(graph, layout = coords)  
+
+```
+
+
