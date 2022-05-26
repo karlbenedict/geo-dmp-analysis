@@ -286,8 +286,6 @@ geo_x_single(
 ```
 
 ![GEO Data Management Principles - TRUST](images/circular_trust.png){width=6in}
-\newpage
-Crosswalk of GEO, FAIR, and TRUST principles
 
 ```{r, echo=FALSE, error=TRUE, warning=FALSE, message=FALSE}
 # combined graph for all principles
@@ -311,13 +309,10 @@ mygraph <- ggraph(graph, layout = "linear", circular = TRUE) +
 ggsave(paste("images/circular_","principles.png", sep = ""), width = 12, height = 12, dpi = 600)
 
 ```
+\newpage
+Crosswalk of GEO, FAIR, and TRUST principles
 
-
-```{r, echo=FALSE, error=TRUE, warning=FALSE, message=FALSE}
-#
-```
-
-![Crosswalk of GEO, FAIR, and TRUST principles](images/circular_principles.png){width=6in}
+![Crosswalk of GEO, FAIR, and TRUST principles](images/circular_principles.png){width=6in}\ 
 
 ```{r, echo=FALSE, error=TRUE, warning=FALSE, message=FALSE}
 mygraph <- ggraph(graph) +
@@ -333,7 +328,7 @@ mygraph <- ggraph(graph) +
 ggsave(paste("images/auto_","principles.png", sep = ""), width = 18, height = 18, dpi = 600)
 ```
 
-![Crosswalk of GEO, FAIR, and TRUST principles in network form](images/auto_principles.png){width=6in}
+![Crosswalk of GEO, FAIR, and TRUST principles in network form](images/auto_principles.png){width=6in}\ 
 
 
 \newpage
