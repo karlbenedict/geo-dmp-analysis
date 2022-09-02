@@ -1,0 +1,18 @@
+.scrollable {
+  overflow-y:auto;
+  height: 760px
+}
+
+#lifecycles img {
+  width: 300px;
+  float: left;
+}
+
+#principles img {
+  width: 350px;
+  float: left;
+}
+
+#lifecycles p {
+  text-justify: left;
+}
