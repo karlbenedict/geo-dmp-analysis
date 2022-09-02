@@ -1,7 +1,7 @@
 ---
-title: "Linking the GEO Data Sharing and Data Management Principles to other Reference Lifecycles and Principles"
-author: "Karl Benedict - University of New Mexico / Earth Science Information Partners"
-date: "`r format(Sys.time(), '%Y-%b-%d')`"
+title: "Linking the GEO Data Sharing and Data Management Principles to other Reference Lifecycles and Principles<br/><small>[https://bit.ly/2022-09-05_GEO-Principles](https://bit.ly/2022-09-05_GEO-Principles)</small>"
+author: "Karl Benedict - University of New Mexico<br/>Earth Science Information Partners"
+date: "2022-09-05"
 output: 
   revealjs::revealjs_presentation:
     theme: "solarized"
@@ -336,3 +336,6 @@ While the current spreadsheet provides a useful initial platform for capturing a
 # Links to Data and Analytic Code
 
 * [Google spreadsheet](https://docs.google.com/spreadsheets/d/15Fmw0m2jx-wKNqyzB9AsRbDeokp9NowrZBd7XLHZTEc/edit#gid=1719949641) with the preliminary mappings between the DSDMP and each of the reference frameworks
+* [RStudio Cloud project](https://rstudio.cloud/content/3065819) with all analytic code and presentation content. 
+* [GitHub Repository](https://github.com/karlbenedict/geo-dmp-analysis.git) with analytic code and presentation content. 
+* [This Presentation](http://karlbenedict.com/geo-dmp-analysis/2022-09-05_LifecyclesIntro.html#/) 
